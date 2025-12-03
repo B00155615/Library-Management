@@ -11,14 +11,11 @@ A simple web-based Library Management System built with **Flask** and **SQLite**
 pip install -r requirements.txt
 
 2.Initialize the database:
-```bash
 flask db init
 
 3.Apply database migrations:
-```bash
 flask db upgrade
 flask db migrate
 
 4.Run the application:
-```bash
 flask run
