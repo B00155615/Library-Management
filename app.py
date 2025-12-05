@@ -6,10 +6,15 @@ import requests
 from sqlalchemy import desc
 from sqlalchemy.exc import IntegrityError
 
+import os
+from dotenv import load_dotenv
+from flask import Flask
 
+
+load_dotenv()
 app=Flask(__name__)
-app.config['SQLALCHEMY_DATABASE_URI']='sqlite:///library.db'
-app.config['SECRET_KEY']='af9d4e10d142994285d0c1f861a70925'
+app.config['SQLALCHEMY_DATABASE_URI']=os.getenv('DATABASE_URL' ,'sqlite:///library.db')
+app.config['SECRET_KEY']= os.getenv('SECRET_KEY')
 db.init_app(app)
 migrate=Migrate(app,db)
 
@@ -20,8 +25,11 @@ def index():
     total_members = Member.query.count()
     total_rent_current_month = calculate_total_rent_current_month()
     recent_transactions  =  db.session.query(Transaction,Book).join(Book).order_by(Transaction.issue_date.desc()).limit(5).all()
-
     return render_template('index.html', borrowed_books=borrowed_books, total_books=total_books,total_members=total_members,recent_transactions=recent_transactions,total_rent_current_month=total_rent_current_month)
+
+@app.route('/login')
+def login():  
+    return render_template('login.html')
 
 def calculate_total_rent_current_month():
     current_month = datetime.datetime.now().month
@@ -321,7 +329,7 @@ def imp():
         all_books = []
         for page in range(1, num_pages + 1):
             url = f"{API_BASE_URL}?page={page}&title={title}"
-            response = requests.get(url)
+            response = requests.get(url, timeout=5)
             data = response.json()
             all_books.extend(data.get('message', []))  
         return render_template('imp.html', data=all_books[:num_books], title=title, num_books=num_books)
