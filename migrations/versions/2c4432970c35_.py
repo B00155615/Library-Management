@@ -1,8 +1,8 @@
 """empty message
 
-Revision ID: 1e3d7a10c321
+Revision ID: 2c4432970c35
 Revises: 
-Create Date: 2023-08-08 12:13:13.005138
+Create Date: 2025-12-04 21:22:34.682176
 
 """
 from alembic import op
@@ -10,7 +10,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision = '1e3d7a10c321'
+revision = '2c4432970c35'
 down_revision = None
 branch_labels = None
 depends_on = None
@@ -27,20 +27,24 @@ def upgrade():
     sa.Column('page', sa.Integer(), nullable=True),
     sa.PrimaryKeyConstraint('id')
     )
+    op.create_table('charges',
+    sa.Column('id', sa.Integer(), nullable=False),
+    sa.Column('rentfee', sa.Integer(), nullable=True),
+    sa.PrimaryKeyConstraint('id')
+    )
     op.create_table('member',
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('name', sa.String(length=100), nullable=False),
     sa.Column('email', sa.String(length=100), nullable=True),
     sa.Column('phone', sa.String(length=15), nullable=True),
     sa.Column('address', sa.String(length=200), nullable=True),
-    sa.Column('outstanding_debt', sa.Float(), nullable=True),
     sa.PrimaryKeyConstraint('id')
     )
     op.create_table('stock',
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('book_id', sa.Integer(), nullable=False),
     sa.Column('total_quantity', sa.Integer(), nullable=True),
-    sa.Column('available_quanity', sa.Integer(), nullable=True),
+    sa.Column('available_quantity', sa.Integer(), nullable=True),
     sa.Column('borrowed_quantity', sa.Integer(), nullable=True),
     sa.Column('total_borrowed', sa.Integer(), nullable=True),
     sa.ForeignKeyConstraint(['book_id'], ['book.id'], ),
@@ -65,5 +69,6 @@ def downgrade():
     op.drop_table('transaction')
     op.drop_table('stock')
     op.drop_table('member')
+    op.drop_table('charges')
     op.drop_table('book')
     # ### end Alembic commands ###

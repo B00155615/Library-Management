@@ -31,7 +31,9 @@
                       <td class="py-2 px-4 border border-gray-200">{{ i.phone }}</td>
                       <td class="py-2 px-4 border border-gray-200">{{ i.address }}</td>
                       <td class="py-2 px-4 border border-gray-200">
-                        <a class="ml-2 px-4 py-1 bg-green-500 text-white rounded hover:bg-green-600" href="edit_member/{{i.id}}">Edit </a>
+                        <a class="ml-2 px-4 py-1 bg-green-500 text-white rounded hover:bg-green-600" 
+   href="{{ url_for('edit_member', id=i.id, token=edit_tokens[i.id|string]) }}">Edit </a>
+
                       <a class="ml-2 px-4 py-1 bg-red-500 text-white rounded hover:bg-red-600" href="delete_member/{{i.id}}" onclick="return confirm('Are you sure')">Delete </a></td>
                     </tr>
               {% endfor %}
