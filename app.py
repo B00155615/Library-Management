@@ -1,31 +1,67 @@
 from flask import Flask,render_template,request,redirect,flash,url_for,jsonify
 from flask_migrate import Migrate
-from models import db,Book,Member,Transaction,Stock,Charges
+from models import db,Book,Member,Transaction,Stock,Charges,Admin
 import datetime
 import requests 
 from sqlalchemy import desc
 from sqlalchemy.exc import IntegrityError
 from flask import abort
 import secrets
+from werkzeug.security import check_password_hash
 from flask import session
+from functools import wraps
 
+import os
+from dotenv import load_dotenv
 
-
+load_dotenv()
 app=Flask(__name__)
-app.config['SQLALCHEMY_DATABASE_URI']='sqlite:///library.db'
-app.config['SECRET_KEY']='af9d4e10d142994285d0c1f861a70925'
+app.config['SQLALCHEMY_DATABASE_URI']=os.getenv('DATABASE_URL' ,'sqlite:///library.db')
+app.config['SECRET_KEY']= os.getenv('SECRET_KEY')
 db.init_app(app)
 migrate=Migrate(app,db)
 
+def login_required(f):
+    @wraps(f)
+    def wrapper(*args, **kwargs):
+        if 'admin_id' not in session:
+            flash("Please login first", "error")
+            return redirect(url_for('login'))
+        return f(*args, **kwargs)
+    return wrapper
+
 @app.route('/')
+@login_required
 def index():
     borrowed_books = db.session.query(Transaction).filter(Transaction.return_date == None).count()
     total_books = Book.query.count()
     total_members = Member.query.count()
     total_rent_current_month = calculate_total_rent_current_month()
     recent_transactions  =  db.session.query(Transaction,Book).join(Book).order_by(Transaction.issue_date.desc()).limit(5).all()
-
     return render_template('index.html', borrowed_books=borrowed_books, total_books=total_books,total_members=total_members,recent_transactions=recent_transactions,total_rent_current_month=total_rent_current_month)
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        username = request.form.get('username')
+        password = request.form.get('password')
+        admin = Admin.query.filter_by(username=username).first()
+
+        # Example login check
+        if admin and check_password_hash(admin.password, password):
+            session['admin_id'] = admin.id
+            flash("Login successful!", "success")
+            return redirect(url_for('index'))
+        else:
+            flash("Invalid username or password", "error")
+            return redirect(url_for('login'))
+
+    return render_template('login.html')
+
+@app.route('/logout')
+def logout():
+    session.pop('admin_id', None)
+    return redirect(url_for('login'))
 
 def calculate_total_rent_current_month():
     current_month = datetime.datetime.now().month
@@ -47,6 +83,7 @@ def calculate_total_rent_current_month():
     return total_rent if total_rent else 0
 
 @app.route('/add_book',methods=['GET','POST'])
+@login_required
 def add_book():
     if request.method == 'POST':
         title = request.form.get('title')
@@ -68,6 +105,7 @@ def add_book():
 
 
 @app.route('/add_member',methods=['GET','POST'])
+@login_required
 def add_member():
     if request.method == 'POST':
         name = request.form.get('name')
@@ -87,6 +125,7 @@ def add_member():
 
 
 @app.route('/view_books', methods=['GET', 'POST'])
+@login_required
 def book_list():
     if request.method == 'POST':
         if 'searcht'and 'searcha' in request.form:
@@ -105,6 +144,7 @@ def book_list():
     return render_template('view_books.html', books=books)
 
 @app.route('/view_members', methods=['GET','POST'])
+@login_required
 def member_list():
     if request.method == 'POST':
         search = request.form.get('search')
@@ -119,6 +159,7 @@ def member_list():
     return render_template('view_members.html', member=member,  edit_tokens=edit_tokens)
 
 @app.route('/edit_book/<int:id>',methods=['GET','POST'])
+@login_required
 def edit_book(id):
     book=Book.query.get(id)
     #print(book.title)
@@ -139,6 +180,7 @@ def edit_book(id):
     return render_template('edit_book.html',book=book,stock=stock)
 
 @app.route('/edit_member/<int:id>',methods=['GET','POST'])
+@login_required
 def edit_member(id):
    
 
@@ -167,6 +209,7 @@ def edit_member(id):
     return render_template('edit_member.html',member=member)
 
 @app.route('/delete_member/<int:id>',methods=['GET','POST'])
+@login_required
 def delete_member(id):
     try:
         member=Member.query.get(id)
@@ -178,6 +221,7 @@ def delete_member(id):
     return redirect('/view_members')
 
 @app.route('/delete_book/<int:id>',methods=['GET','POST'])
+@login_required
 def delete_book(id):
     try:
         book=Book.query.get(id)
@@ -191,6 +235,7 @@ def delete_book(id):
     return redirect('/view_members')
 
 @app.route('/view_book/<int:id>')
+@login_required
 def view_book(id):
     book=Book.query.get(id)
     stock=Stock.query.filter_by(book_id=id).first()
@@ -199,6 +244,7 @@ def view_book(id):
 
 
 @app.route('/view_member/<int:id>')
+@login_required
 def view_member(id):
     member=Member.query.get(id)
     transaction=Transaction.query.filter_by(member_id=member.id).all()
@@ -218,6 +264,7 @@ def calculate_dbt(member):
     return dbt
 
 @app.route('/issuebook', methods=['GET','POST'])
+@login_required
 def issue_book():
     if request.method == "POST":
         memberid = request.form.get('mk')
@@ -249,6 +296,7 @@ def issue_book():
     return render_template('issuebook.html')
 
 @app.route('/issuebookconfirm', methods=['GET', 'POST'])
+@login_required
 def issue_book_confirm():
     if request.method == "POST":
         memberid = request.form['memberid']
@@ -276,6 +324,7 @@ def issue_book_confirm():
 
 
 @app.route('/transactions', methods=['GET', 'POST'])
+@login_required
 def view_borrowings():
     transactions = db.session.query(Transaction, Member, Book).join(Book).join(Member).order_by(desc(Transaction.return_date.is_(None))).all()
 
@@ -304,6 +353,7 @@ def return_book(id):
 
 
 @app.route('/returnbookconfirm', methods=['POST'])
+@login_required
 def return_book_confirm():
     if request.method == "POST":
         id = request.form["id"]
@@ -333,6 +383,7 @@ API_BASE_URL = "https://frappe.io/api/method/frappe-library"
 
 
 @app.route('/import_book', methods=['GET', 'POST'])
+@login_required
 def imp():
     if request.method == 'POST':
         title = request.form.get('title', default='', type=str)
@@ -341,7 +392,7 @@ def imp():
         all_books = []
         for page in range(1, num_pages + 1):
             url = f"{API_BASE_URL}?page={page}&title={title}"
-            response = requests.get(url)
+            response = requests.get(url, timeout=5)
             data = response.json()
             all_books.extend(data.get('message', []))  
         return render_template('imp.html', data=all_books[:num_books], title=title, num_books=num_books)
@@ -350,6 +401,7 @@ def imp():
     return render_template('imp.html', data=[], title='', num_books=20)
 
 @app.route('/save_all_books', methods=['POST'])
+@login_required
 def save_all_books():
     data = request.json
 
@@ -383,6 +435,7 @@ def save_all_books():
     return redirect('/import_book')
 
 @app.route('/stockupdate/<int:id>',methods=['GET','POST'])
+@login_required
 def stock_update(id):
     stock,book=db.session.query(Stock,Book).join(Book).filter(Stock.book_id == id).first()
     if request.method=="POST":
@@ -396,3 +449,5 @@ def stock_update(id):
         db.session.commit()
         flash("Stock Updated" , "success")
     return render_template('stockupdate.html',stock=stock,book=book)
+if __name__ == "__main__":
+    app.run(debug=False)
