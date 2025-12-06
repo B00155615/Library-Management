@@ -5,14 +5,14 @@ import datetime
 import requests 
 from sqlalchemy import desc
 from sqlalchemy.exc import IntegrityError
+from flask import abort
+import secrets
 from werkzeug.security import check_password_hash
 from flask import session
 from functools import wraps
 
 import os
 from dotenv import load_dotenv
-from flask import Flask
-
 
 load_dotenv()
 app=Flask(__name__)
@@ -152,7 +152,11 @@ def member_list():
     else:
         member=db.session.query(Member).all()
 
-    return render_template('view_members.html', member=member)
+    # Generate a unique edit token for each member
+    edit_tokens = {str(m.id): secrets.token_urlsafe(16) for m in member}
+    session['edit_tokens'] = edit_tokens
+
+    return render_template('view_members.html', member=member,  edit_tokens=edit_tokens)
 
 @app.route('/edit_book/<int:id>',methods=['GET','POST'])
 @login_required
@@ -178,7 +182,19 @@ def edit_book(id):
 @app.route('/edit_member/<int:id>',methods=['GET','POST'])
 @login_required
 def edit_member(id):
-    member=Member.query.get(id)
+   
+
+    token = request.args.get('token')
+    edit_tokens = session.get('edit_tokens', {})
+
+    # If token is missing or doesn't match - forbid access
+    if str(id) not in edit_tokens or edit_tokens[str(id)] != token:
+        abort(403)  # Forbidden
+
+    member = Member.query.get(id)
+    if member is None:
+        abort(404)
+
     try:
         if request.method=="POST":
             member.name=request.form['name']
