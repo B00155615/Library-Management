@@ -434,4 +434,4 @@ def stock_update(id):
         flash("Stock Updated" , "success")
     return render_template('stockupdate.html',stock=stock,book=book)
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(debug=False)
